@@ -8,9 +8,10 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.blind675.flatworld-simulator"
+      "bundleIdentifier": "com.blind675.flatworldsim"
     },
     "android": {
+      "package": "com.blind675.flatworldsim",
       "adaptiveIcon": {
         "backgroundColor": "#101b25",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -21,6 +22,18 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b8886074-65cb-4cbf-9533-c0c8365080c8"
+      }
+    },
+    "owner": "blind675",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b8886074-65cb-4cbf-9533-c0c8365080c8"
     }
   }
 }
