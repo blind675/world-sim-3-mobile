@@ -1,0 +1,35 @@
+name: Build and submit iOS to TestFlight
+
+on:
+  push:
+    branches: ['main']
+
+concurrency:
+  group: ios-testflight
+
+jobs:
+  check:
+    name: Typecheck and bundle iOS
+    environment: production
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - run: npm run typecheck
+      - run: npx expo export --platform ios
+
+  build_ios:
+    name: Build iOS for App Store Connect
+    needs: [check]
+    type: build
+    params:
+      platform: ios
+      profile: production
+
+  testflight:
+    name: Upload to TestFlight
+    needs: [build_ios]
+    type: testflight
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
+      changelog: ${{ github.commit_message || 'New build' }}
