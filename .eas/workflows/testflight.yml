@@ -3,6 +3,7 @@ name: Build and submit iOS to TestFlight
 on:
   push:
     branches: ['main']
+    paths: ['**', '!**/*.md']
 
 concurrency:
   group: ios-testflight
@@ -32,4 +33,3 @@ jobs:
     params:
       build_id: ${{ needs.build_ios.outputs.build_id }}
       profile: production
-      groups: ['Team (Expo)']
