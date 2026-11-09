@@ -2,6 +2,8 @@
 
 Native iOS and Android viewer for the FlatWorld simulation. This is an Expo and React Native application with a Skia terrain renderer. It talks directly to the public, read-only API in [world-sim-3-server](https://github.com/blind675/world-sim-3-server). The web viewer remains a separate project.
 
+Routine work is committed to `staging`; `main` is reserved for an explicitly requested production release. See the backend's [release workflow](https://github.com/blind675/world-sim-3-server/blob/staging/docs/RELEASE_WORKFLOW.md). The TestFlight workflow listens to `main`, so staging pushes do not start production iOS builds.
+
 ## Run
 
 Use an Expo-supported Node.js release (22.13+, 24.3+, or 26+). From this folder:
@@ -31,7 +33,7 @@ The mobile app is currently a read-only viewer. Its terrain tiles are generated 
 
 This folder is the [mobile GitHub repository](https://github.com/blind675/world-sim-3-mobile) and is linked to the [Expo project](https://expo.dev/accounts/blind675/projects/flatworld-simulator). `app.json` contains its EAS project ID and native app identifiers. `eas.json` defines separate development, preview, and production environments. The Expo project has `EXPO_PUBLIC_API_URL` set to the Railway API in each environment. It is a public URL, not a secret.
 
-The [TestFlight workflow](.eas/workflows/testflight.yml) runs on pushes to `main` after the Expo project is connected to this GitHub repository. It typechecks and bundles iOS, creates a signed production `.ipa`, then uses Expo Submit to upload that build to App Store Connect for TestFlight. The standard `submit` job works on the Expo free plan; the specialized `testflight` workflow job requires a paid plan for uploading a new EAS build. The `Team (Expo)` internal group receives builds through Apple's automatic distribution, so the workflow does not request manual group assignment. `autoIncrement` in the production build profile gives every build a new build number. The workflow currently builds on every push, including JavaScript-only changes, so each push can become a new TestFlight build. This uses Expo build minutes and Apple's processing time.
+The [TestFlight workflow](.eas/workflows/testflight.yml) runs on non-Markdown pushes to `main` after the Expo project is connected to this GitHub repository. It typechecks and bundles iOS, creates a signed production `.ipa`, then uses Expo Submit to upload that build to App Store Connect for TestFlight. The standard `submit` job works on the Expo free plan; the specialized `testflight` workflow job requires a paid plan for uploading a new EAS build. The `Team (Expo)` internal group receives builds through Apple's automatic distribution, so the workflow does not request manual group assignment. `autoIncrement` in the production build profile gives every build a new build number. Even JavaScript-only main changes can create a new TestFlight build, using Expo build minutes and Apple's processing time.
 
 **One-time GitHub connection:** In [Expo account settings](https://expo.dev/settings), connect GitHub under **Connections** and authorize the Expo GitHub App for `blind675/world-sim-3-mobile`. Then open the [Expo project's GitHub settings](https://expo.dev/accounts/blind675/projects/flatworld-simulator/settings/github), select that repository, and keep the source directory at `/`. This connection is needed for push triggers; the EAS CLI login alone does not connect GitHub.
 
