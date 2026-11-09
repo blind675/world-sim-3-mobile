@@ -65,6 +65,9 @@ export default function WorldMap({ meta, layer, focus, zoomRequest, selectedAgen
   const startZoom = useSharedValue(camera.ppc);
   const pinchWorldX = useSharedValue(0);
   const pinchWorldY = useSharedValue(0);
+  const halfWidth = size.width / 2;
+  const halfHeight = size.height / 2;
+  const pinchMinZoom = minZoom(size.width, size.height, meta.chunkSize);
 
   const transform = useDerivedValue(() => [
     { translateX: size.width / 2 - cx.value * ppc.value },
@@ -247,15 +250,16 @@ export default function WorldMap({ meta, layer, focus, zoomRequest, selectedAgen
   const pinch = Gesture.Pinch()
     .onStart((event) => {
       startZoom.value = ppc.value;
-      pinchWorldX.value = cx.value + (event.focalX - size.width / 2) / ppc.value;
-      pinchWorldY.value = cy.value + (event.focalY - size.height / 2) / ppc.value;
+      pinchWorldX.value = cx.value + (event.focalX - halfWidth) / ppc.value;
+      pinchWorldY.value = cy.value + (event.focalY - halfHeight) / ppc.value;
       runOnJS(onManualMove)();
     })
     .onUpdate((event) => {
-      const next = clamp(startZoom.value * event.scale, minZoom(size.width, size.height, meta.chunkSize), 24);
+      // Gesture callbacks run on the UI thread. Keep this math inside the worklet.
+      const next = Math.max(pinchMinZoom, Math.min(24, startZoom.value * event.scale));
       ppc.value = next;
-      cx.value = pinchWorldX.value - (event.focalX - size.width / 2) / next;
-      cy.value = pinchWorldY.value - (event.focalY - size.height / 2) / next;
+      cx.value = pinchWorldX.value - (event.focalX - halfWidth) / next;
+      cy.value = pinchWorldY.value - (event.focalY - halfHeight) / next;
     })
     .onEnd(() => runOnJS(commitCamera)(cx.value, cy.value, ppc.value));
 
