@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { ActivityIndicator, AppState, FlatList, Image as NativeImage, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { API_URL, getAgent, getAgents, getMeta, getObjectCatalog, getStatus } from './src/api';
+import { API_URL, getAgent, getAgents, getMeta, getObject, getObjectCatalog, getStatus } from './src/api';
 import WorldMap, { type FocusRequest, type ZoomRequest } from './src/WorldMap';
-import type { Agent, Layer, ObjectCatalog, WorldMeta, WorldObject } from './src/types';
+import { OBJECT_IMAGE_SOURCES } from './src/objectImages';
+import type { Agent, Layer, ObjectCatalog, WorldMeta, WorldObject, WorldObjectDetail } from './src/types';
 
 const LAYERS: { id: Layer; title: string }[] = [
   { id: 'height', title: 'Elevation' },
@@ -22,11 +23,12 @@ function Button({ title, onPress, active = false }: { title: string; onPress: ()
 function Sheet({ visible, title, onClose, children, tall = false }: {
   visible: boolean; title: string; onClose: () => void; children: React.ReactNode; tall?: boolean;
 }) {
+  const insets = useSafeAreaInsets();
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
     <View style={styles.backdrop}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View style={[styles.sheet, tall && { height: '76%' }]}>
-        <View style={styles.sheetHeader}><Text style={styles.sheetTitle}>{title}</Text><Button title="Close" onPress={onClose} /></View>
+      <View style={[styles.sheet, { paddingBottom: Math.max(25, insets.bottom + 12) }, tall && { height: '76%' }]}>
+        <View style={styles.sheetHeader}><Text numberOfLines={1} style={styles.sheetTitle}>{title}</Text><Button title="Close" onPress={onClose} /></View>
         {children}
       </View>
     </View>
@@ -38,9 +40,23 @@ function Need({ title, value }: { title: string; value?: number }) {
   const percent = Math.round(Math.max(0, Math.min(1, value)) * 100);
   return <View style={styles.needRow}>
     <Text style={styles.needName}>{title}</Text>
-    <View style={styles.needTrack}><View style={[styles.needFill, { width: `${percent}%`, backgroundColor: percent > 70 ? '#ed796c' : '#76d1a0' }]} /></View>
+    <View style={styles.needTrack}><View style={[styles.needFill, { width: `${percent}%`, backgroundColor: percent > 70 ? '#ed796c' : percent > 40 ? '#f5bd6a' : '#76d1a0' }]} /></View>
     <Text style={styles.needValue}>{percent}%</Text>
   </View>;
+}
+
+function readable(value: string | null | undefined): string {
+  return value ? value.replaceAll('_', ' ') : '—';
+}
+
+function leadingNeed(agent: Agent): string {
+  const known: [string, number][] = [];
+  if (agent.hunger != null) known.push(['Hunger', agent.hunger]);
+  if (agent.thirst != null) known.push(['Thirst', agent.thirst]);
+  if (agent.tiredness != null) known.push(['Tiredness', agent.tiredness]);
+  if (!known.length) return readable(agent.state);
+  const [name, value] = known.reduce((largest, item) => item[1] > largest[1] ? item : largest);
+  return `${name} ${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
 }
 
 export default function App() {
@@ -56,6 +72,9 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [selectedObject, setSelectedObject] = useState<WorldObject | null>(null);
+  const [objectDetail, setObjectDetail] = useState<WorldObjectDetail | null>(null);
+  const [objectError, setObjectError] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<'now' | 'needs' | 'more'>('now');
   const [follow, setFollow] = useState(false);
   const [finderOpen, setFinderOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -121,6 +140,20 @@ export default function App() {
     return () => { cancelled = true; clearInterval(timer); };
   }, [selectedId, active, meta?.simulation.tickMs]);
 
+  const objectRefreshTick = selectedObject?.type === 'food' ? status?.tickCount : undefined;
+  useEffect(() => {
+    if (!selectedObject || !active) return;
+    let cancelled = false;
+    getObject(selectedObject.id).then((detail) => {
+      if (!cancelled) { setObjectDetail(detail); setObjectError(null); }
+    }).catch((reason) => {
+      if (!cancelled) setObjectError(String(reason).includes('404') ? 'This object is no longer available.' : 'Live object status is unavailable.');
+    });
+    return () => { cancelled = true; };
+  }, [selectedObject?.id, objectRefreshTick, active]);
+
+  useEffect(() => { setDetailTab('now'); }, [selectedId, selectedObject?.id]);
+
   const refreshAgents = useCallback(() => {
     setFinderLoading(true); setFinderError(null);
     getAgents().then(setAgents).catch((reason) => setFinderError(String(reason))).finally(() => setFinderLoading(false));
@@ -133,10 +166,35 @@ export default function App() {
   }, [agents, search]);
 
   const selectAgent = useCallback((agent: Agent) => {
-    setSelectedId(agent.id); setSelectedAgent(agent); setSelectedObject(null); setFollow(false);
+    setSelectedId(agent.id); setSelectedAgent(agent); setSelectedObject(null); setObjectDetail(null); setFollow(false);
     setFocus({ x: agent.x, y: agent.y, key: Date.now() });
     setFinderOpen(false); setDetailsOpen(true); setNotice(null);
   }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedId(null); setSelectedAgent(null); setSelectedObject(null); setObjectDetail(null);
+    setObjectError(null); setFollow(false); setDetailsOpen(false); setNotice(null);
+  }, []);
+
+  const jumpToSelection = useCallback(async () => {
+    if (selectedId) {
+      try {
+        const fresh = await getAgent(selectedId);
+        setSelectedAgent(fresh);
+        if (fresh.dead) { setFollow(false); setNotice(`Agent ${selectedId} has died. Showing its last position.`); }
+        setFocus({ x: fresh.x, y: fresh.y, key: Date.now() });
+      } catch {
+        setFollow(false);
+        setNotice(`Agent ${selectedId} is no longer available.`);
+      }
+    } else if (selectedObject) {
+      setFocus({ x: selectedObject.x, y: selectedObject.y, key: Date.now() });
+    }
+  }, [selectedId, selectedObject]);
+
+  const selectedDefinition = objectCatalog?.definitions.find((definition) => definition.id === (selectedObject?.definitionId ?? selectedObject?.type));
+  const objectName = selectedDefinition?.name ?? (selectedObject ? readable(selectedObject.type) : 'Object');
+  const objectImage = OBJECT_IMAGE_SOURCES[selectedDefinition?.sprite ?? selectedObject?.type ?? ''];
 
   return <GestureHandlerRootView style={{ flex: 1 }}><SafeAreaProvider><SafeAreaView style={styles.root} edges={['top', 'bottom']}>
     <StatusBar style="light" />
@@ -147,10 +205,13 @@ export default function App() {
 
     <View style={styles.map}>
       {meta ? <WorldMap meta={meta} layer={layer} focus={focus} zoomRequest={zoomRequest}
-        selectedAgentId={selectedId} selectedAgent={selectedAgent} selectedObjectId={selectedObject?.id ?? null} objectCatalog={objectCatalog} following={follow} active={active} onAgentPress={selectAgent}
+        selectedAgentId={selectedAgent && !selectedAgent.dead ? selectedId : null} selectedAgent={selectedAgent} selectedObject={selectedObject} objectCatalog={objectCatalog} following={follow} active={active} onAgentPress={selectAgent}
         onObjectPress={(object) => {
           setSelectedObject(object);
-          if (object) { setSelectedId(null); setSelectedAgent(null); setFollow(false); setDetailsOpen(true); }
+          if (object) {
+            setSelectedId(null); setSelectedAgent(null); setObjectDetail(null); setObjectError(null);
+            setFollow(false); setDetailsOpen(true); setNotice(null);
+          }
         }}
         onManualMove={() => setFollow(false)} />
         : <View style={styles.center}>{error
@@ -166,12 +227,25 @@ export default function App() {
           <Button title="+" onPress={() => setZoomRequest({ factor: 1.4, key: Date.now() })} />
           <Button title="−" onPress={() => setZoomRequest({ factor: 1 / 1.4, key: Date.now() })} />
         </View>
-        {selectedId && <Pressable style={styles.selection} onPress={() => setDetailsOpen(true)}>
-          <Text style={styles.selectionText}>{follow ? '◎' : '●'} Agent {selectedId}  ›</Text>
-        </Pressable>}
+        {(selectedId || selectedObject) && <View style={styles.selectionCard}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Open selected item details" style={styles.selectionSummary} onPress={() => setDetailsOpen(true)}>
+            {selectedObject && (objectImage
+              ? <NativeImage source={objectImage} style={styles.selectionImage} resizeMode="contain" />
+              : <View style={[styles.selectionSwatch, { backgroundColor: selectedDefinition?.color ?? '#8aabb8' }]} />)}
+            <View style={styles.selectionWords}>
+              <Text numberOfLines={1} style={styles.selectionTitle}>{selectedId ? `Agent ${selectedId}` : objectName}  ›</Text>
+              <Text numberOfLines={1} style={styles.selectionSubtitle}>{selectedId
+                ? selectedAgent ? `${selectedAgent.dead ? 'Deceased' : readable(selectedAgent.currentAction ?? selectedAgent.state)} · ${leadingNeed(selectedAgent)}` : 'Details unavailable'
+                : `${readable(selectedDefinition?.category ?? selectedObject?.type)} · ${selectedObject?.x}, ${selectedObject?.y}`}</Text>
+            </View>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Jump to selected item" onPress={() => void jumpToSelection()} style={styles.selectionAction}><Text style={styles.selectionActionText}>Locate</Text></Pressable>
+          {selectedId && selectedAgent && !selectedAgent.dead && <Pressable accessibilityRole="button" accessibilityLabel={follow ? 'Stop following agent' : 'Follow agent'} accessibilityState={{ selected: follow }} onPress={() => setFollow((value) => !value)} style={[styles.selectionAction, follow && styles.selectionActionActive]}><Text style={styles.selectionActionText}>{follow ? 'Follow ✓' : 'Follow'}</Text></Pressable>}
+          <Pressable accessibilityRole="button" accessibilityLabel="Clear selection" onPress={clearSelection} style={styles.selectionClose}><Text style={styles.selectionCloseText}>×</Text></Pressable>
+        </View>}
       </>}
     </View>
-    <View style={styles.footer}><Text style={styles.muted}>Drag to move · Pinch to zoom · Tap an agent</Text>{notice && <Text style={styles.notice}>{notice}</Text>}</View>
+    {((!selectedId && !selectedObject) || !!notice) && <View style={styles.footer}>{!selectedId && !selectedObject && <Text style={styles.muted}>Drag to move · Pinch to zoom · Tap an agent</Text>}{notice && <Text style={styles.notice}>{notice}</Text>}</View>}
 
     <Sheet visible={finderOpen} title="Find a living agent" onClose={() => setFinderOpen(false)} tall>
       <TextInput style={styles.search} value={search} onChangeText={setSearch} placeholder="Search ID or state" placeholderTextColor="#81939f" autoCorrect={false} />
@@ -193,22 +267,67 @@ export default function App() {
       </Pressable>)}
     </Sheet>
 
-    <Sheet visible={detailsOpen} title={selectedAgent ? `Agent ${selectedAgent.id}` : selectedObject ? objectCatalog?.definitions.find((definition) => definition.id === selectedObject.definitionId)?.name ?? selectedObject.type.replace('_', ' ') : 'Details'} onClose={() => setDetailsOpen(false)}>
-      {selectedAgent ? <ScrollView contentContainerStyle={styles.detail}>
-        <Text style={styles.detailState}>{selectedAgent.dead ? 'Deceased' : selectedAgent.state}</Text>
-        <Text style={styles.detailLine}>Position  {Math.round(selectedAgent.x)}, {Math.round(selectedAgent.y)}</Text>
-        {selectedAgent.currentGoal && <Text style={styles.detailLine}>Goal  {selectedAgent.currentGoal.type} · {selectedAgent.currentGoal.targetX}, {selectedAgent.currentGoal.targetY}</Text>}
-        {selectedAgent.age != null && <Text style={styles.detailLine}>Age  {selectedAgent.age}</Text>}
-        <Need title="Hunger" value={selectedAgent.hunger} /><Need title="Thirst" value={selectedAgent.thirst} /><Need title="Tiredness" value={selectedAgent.tiredness} />
-        <View style={styles.detailActions}>
-          <Button title="Jump to agent" onPress={() => { setFocus({ x: selectedAgent.x, y: selectedAgent.y, key: Date.now() }); setDetailsOpen(false); }} />
-          {!selectedAgent.dead && <Button title={follow ? 'Following ✓' : 'Follow agent'} active={follow} onPress={() => { setFollow((value) => !value); setDetailsOpen(false); }} />}
+    <Sheet visible={detailsOpen} title={selectedId ? `Agent ${selectedId}` : selectedObject ? objectName : 'Details'} onClose={() => setDetailsOpen(false)} tall>
+      {selectedAgent ? <>
+        <View style={styles.detailTabs}>
+          {(['now', 'needs', 'more'] as const).map((tab) => <Pressable key={tab} accessibilityRole="tab" accessibilityState={{ selected: detailTab === tab }} onPress={() => setDetailTab(tab)} style={[styles.detailTab, detailTab === tab && styles.detailTabActive]}><Text style={styles.detailTabText}>{tab === 'now' ? 'Now' : tab === 'needs' ? 'Needs' : 'More'}</Text></Pressable>)}
         </View>
-      </ScrollView> : selectedObject ? <View style={styles.detail}>
-        <Text style={styles.detailState}>{objectCatalog?.definitions.find((definition) => definition.id === selectedObject.definitionId)?.name ?? selectedObject.type.replace('_', ' ')}</Text>
+        <ScrollView style={styles.detailScroll} contentContainerStyle={styles.detail}>
+          {detailTab === 'now' ? <>
+            <Text style={styles.detailState}>{selectedAgent.dead ? 'Deceased' : readable(selectedAgent.state)}</Text>
+            <Text style={styles.detailLine}>Action  {readable(selectedAgent.currentAction)}</Text>
+            <Text style={styles.detailLine}>Goal  {selectedAgent.currentGoal ? `${readable(selectedAgent.currentGoal.type)} · ${selectedAgent.currentGoal.targetX}, ${selectedAgent.currentGoal.targetY}` : 'None'}</Text>
+            <Text style={styles.detailLine}>Route  {selectedAgent.pathRemaining ?? selectedAgent.path?.length ?? 0} cells remaining</Text>
+            <Text style={styles.detailLine}>Position  {Math.round(selectedAgent.x)}, {Math.round(selectedAgent.y)}</Text>
+            <View style={styles.detailActions}>
+              <Button title="Locate on map" onPress={() => { void jumpToSelection(); setDetailsOpen(false); }} />
+              {!selectedAgent.dead && <Button title={follow ? 'Following ✓' : 'Follow agent'} active={follow} onPress={() => { setFollow((value) => !value); setDetailsOpen(false); }} />}
+            </View>
+          </> : detailTab === 'needs' ? <>
+            <Text style={styles.detailHint}>Higher percentages mean a more urgent need.</Text>
+            <Need title="Hunger" value={selectedAgent.hunger} />
+            <Need title="Thirst" value={selectedAgent.thirst} />
+            <Need title="Tiredness" value={selectedAgent.tiredness} />
+          </> : <>
+            <Text style={styles.detailSectionTitle}>Identity</Text>
+            <Text style={styles.detailLine}>ID  {selectedAgent.id}</Text>
+            {selectedAgent.age != null && <Text style={styles.detailLine}>Age  {selectedAgent.age}</Text>}
+            {selectedAgent.sex && <Text style={styles.detailLine}>Sex  {selectedAgent.sex}</Text>}
+            <Text style={styles.detailSectionTitle}>Traits</Text>
+            {Object.entries(selectedAgent.traits ?? {}).length
+              ? Object.entries(selectedAgent.traits ?? {}).map(([key, value]) => <Text key={key} style={styles.detailLine}>{readable(key)}  {String(value)}</Text>)
+              : <Text style={styles.detailHint}>Loading traits…</Text>}
+            <Text style={styles.detailSectionTitle}>Memory and inventory</Text>
+            <Text style={styles.detailLine}>Memories  {selectedAgent.memory?.length ?? 'Loading…'}</Text>
+            {selectedAgent.memory?.slice(0, 8).map((entry, index) => <Text key={index} style={styles.detailLine}>• {readable(entry.kind ?? entry.type)}{entry.x != null && entry.y != null ? ` · ${entry.x}, ${entry.y}` : ''}{entry.confidence != null ? ` · ${Math.round(entry.confidence * 100)}% confidence` : ''}</Text>)}
+            <Text style={styles.detailLine}>Inventory items  {selectedAgent.inventory?.length ?? 'Loading…'}</Text>
+          </>}
+        </ScrollView>
+      </> : selectedId ? <View style={styles.detail}><Text style={styles.detailHint}>Agent {selectedId} is no longer available. Choose another living agent from Find agent.</Text></View>
+        : selectedObject ? <ScrollView style={styles.detailScroll} contentContainerStyle={styles.detail}>
+        <View style={styles.objectHeading}>
+          {objectImage ? <NativeImage source={objectImage} style={styles.objectImage} resizeMode="contain" />
+            : <View style={[styles.objectSwatch, { backgroundColor: selectedDefinition?.color ?? '#8aabb8' }]} />}
+          <View style={styles.objectHeadingWords}><Text style={styles.detailState}>{objectName}</Text><Text style={styles.detailHint}>{readable(selectedDefinition?.category ?? selectedObject.type)} · {readable(selectedObject.type)}</Text></View>
+        </View>
+        {selectedObject.type === 'food' && <>
+          <Text style={styles.detailSectionTitle}>Food availability</Text>
+          {objectDetail?.id === selectedObject.id && objectDetail.food
+            ? <Text style={styles.detailLine}>{objectDetail.food.depleted
+              ? `Depleted · regrows in ${objectDetail.food.ticksUntilRegrow} ticks`
+              : `${objectDetail.food.stock} of ${objectDetail.food.capacity} servings available`}</Text>
+            : <Text style={styles.detailHint}>{objectError ?? (objectDetail?.id === selectedObject.id ? 'Live food stock is not available on this server yet.' : 'Loading live food stock…')}</Text>}
+        </>}
+        {objectError && selectedObject.type !== 'food' && <Text style={styles.detailHint}>{objectError}</Text>}
+        <Text style={styles.detailSectionTitle}>Location and habitat</Text>
         <Text style={styles.detailLine}>Position  {selectedObject.x}, {selectedObject.y}</Text>
-        <Text style={styles.detailLine}>ID  {selectedObject.id}</Text>
-      </View> : <Text style={styles.muted}>Tap an agent or object on the map.</Text>}
+        <Text style={styles.detailLine}>Preferred ground  {selectedDefinition?.spawn?.preferredGroundTypes?.map(readable).join(', ') ?? 'Any suitable ground'}</Text>
+        <Text style={styles.detailLine}>Spawn pattern  {readable(selectedDefinition?.spawn?.strategy)}</Text>
+        <Text style={styles.detailSectionTitle}>Record</Text>
+        <Text style={styles.detailLine}>Object ID  {selectedObject.id}</Text>
+        <Text style={styles.detailLine}>Definition  {selectedDefinition?.id ?? selectedObject.definitionId ?? selectedObject.type}</Text>
+        <View style={styles.detailActions}><Button title="Locate on map" onPress={() => { void jumpToSelection(); setDetailsOpen(false); }} /></View>
+      </ScrollView> : <Text style={styles.muted}>Select an agent or object on the map.</Text>}
     </Sheet>
   </SafeAreaView></SafeAreaProvider></GestureHandlerRootView>;
 }
@@ -223,8 +342,18 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingHorizontal: 25 },
   topActions: { position: 'absolute', left: 12, top: 12, flexDirection: 'row', gap: 7 },
   zoomActions: { position: 'absolute', right: 12, top: 12, gap: 7 },
-  selection: { position: 'absolute', right: 12, bottom: 12, padding: 11, backgroundColor: '#253b46ee', borderColor: '#e8ad5c', borderWidth: 1, borderRadius: 9 },
-  selectionText: { color: '#ffe0aa', fontWeight: '700', fontSize: 12 },
+  selectionCard: { position: 'absolute', left: 12, right: 12, bottom: 12, minHeight: 64, padding: 7, flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#142631f5', borderColor: '#e8ad5c', borderWidth: 1, borderRadius: 13 },
+  selectionSummary: { flex: 1, minWidth: 0, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  selectionImage: { width: 36, height: 36 },
+  selectionSwatch: { width: 28, height: 28, borderRadius: 6 },
+  selectionWords: { flex: 1, minWidth: 0 },
+  selectionTitle: { color: '#fff4d6', fontSize: 13, fontWeight: '700' },
+  selectionSubtitle: { color: '#b8cbd4', fontSize: 11, marginTop: 3 },
+  selectionAction: { minWidth: 48, minHeight: 44, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: '#284553' },
+  selectionActionActive: { backgroundColor: '#68502c' },
+  selectionActionText: { color: '#f5e7c7', fontSize: 11, fontWeight: '700' },
+  selectionClose: { width: 35, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  selectionCloseText: { color: '#e5edf0', fontSize: 24 },
   button: { minHeight: 40, paddingHorizontal: 12, paddingVertical: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1b2d39ee', borderColor: '#4a6776', borderWidth: 1, borderRadius: 9 },
   buttonActive: { borderColor: '#e8ad5c', backgroundColor: '#57432d' },
   buttonText: { color: '#f2f6f7', fontSize: 12, fontWeight: '700' },
@@ -236,7 +365,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#0008' },
   sheet: { maxHeight: '82%', padding: 18, paddingBottom: 25, backgroundColor: '#142631', borderTopLeftRadius: 22, borderTopRightRadius: 22, borderColor: '#49616c', borderTopWidth: 1 },
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  sheetTitle: { color: '#f2f6f7', fontWeight: '700', fontSize: 18 },
+  sheetTitle: { color: '#f2f6f7', fontWeight: '700', fontSize: 18, flex: 1, marginRight: 10 },
   search: { height: 45, color: '#fff', backgroundColor: '#0d1b25', borderColor: '#506875', borderWidth: 1, borderRadius: 9, paddingHorizontal: 12, fontSize: 15 },
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 9 },
   row: { minHeight: 55, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomColor: '#314653', borderBottomWidth: 1, paddingVertical: 9, paddingHorizontal: 3 },
@@ -245,9 +374,20 @@ const styles = StyleSheet.create({
   rowSub: { color: '#a1b5c0', fontSize: 12, marginTop: 3 },
   arrow: { color: '#f5bd6a', fontWeight: '700', fontSize: 20 },
   detail: { paddingBottom: 10 },
+  detailScroll: { flexShrink: 1 },
+  detailTabs: { flexDirection: 'row', gap: 6, marginBottom: 14 },
+  detailTab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: '#263d48' },
+  detailTabActive: { backgroundColor: '#73532c', borderColor: '#e8ad5c', borderWidth: 1 },
+  detailTabText: { color: '#f3f6f7', fontSize: 13, fontWeight: '700' },
   detailState: { color: '#f5bd6a', fontSize: 15, fontWeight: '700', textTransform: 'capitalize', marginBottom: 12 },
   detailLine: { color: '#d7e2e7', fontSize: 13, marginBottom: 9 },
+  detailHint: { color: '#a9bec7', fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  detailSectionTitle: { color: '#e8ad5c', fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginTop: 13, marginBottom: 10 },
   detailActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 16 },
+  objectHeading: { flexDirection: 'row', alignItems: 'center', gap: 13, marginBottom: 4 },
+  objectHeadingWords: { flex: 1 },
+  objectImage: { width: 68, height: 68 },
+  objectSwatch: { width: 54, height: 54, borderRadius: 10 },
   needRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9 },
   needName: { color: '#beced6', width: 76, fontSize: 12 },
   needTrack: { flex: 1, height: 7, backgroundColor: '#30444f', borderRadius: 4, overflow: 'hidden' },

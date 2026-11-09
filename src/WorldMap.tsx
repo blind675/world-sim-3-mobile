@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Canvas, Circle, Fill, FilterMode, Group, Image, Path, Rect, Skia, useImage, type SkImage } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS, useDerivedValue, useFrameCallback, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedStyle, useDerivedValue, useFrameCallback, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { getChunks, getEntities } from './api';
 import { interpolateAgentPosition, wrappedPathSegments } from './mapMotion';
 import { makeTerrainImage } from './terrain';
+import { OBJECT_IMAGE_SOURCES } from './objectImages';
 import type { Agent, Camera, Chunk, Layer, ObjectCatalog, WorldMeta, WorldObject } from './types';
 import { clamp, minZoom, nearestWrapped, viewportRect, visibleChunks, wrap } from './world';
 
@@ -20,7 +21,7 @@ interface Props {
   zoomRequest: ZoomRequest | null;
   selectedAgentId: string | null;
   selectedAgent: Agent | null;
-  selectedObjectId: string | null;
+  selectedObject: WorldObject | null;
   objectCatalog: ObjectCatalog | null;
   following: boolean;
   active: boolean;
@@ -74,8 +75,9 @@ function AgentMarker({ agent, selected, camera, centerX, centerY, meta, active }
     x.value = px;
     y.value = py;
   }, active);
+  const glyphScale = clamp(5 / camera.ppc, 0.25, 2);
   const markerTransform = useDerivedValue(() => [
-    { translateX: x.value }, { translateY: y.value }, { rotate: agent.facing ?? 0 },
+    { translateX: x.value }, { translateY: y.value }, { rotate: agent.facing ?? 0 }, { scale: glyphScale },
   ]);
   const arrow = useMemo(() => {
     const shape = Skia.PathBuilder.Make();
@@ -87,12 +89,13 @@ function AgentMarker({ agent, selected, camera, centerX, centerY, meta, active }
     return shape.build();
   }, []);
   return selected ? <Group>
-    <Circle cx={x} cy={y} r={3.5} color="#fff4aa88" />
+    <Circle cx={x} cy={y} r={14 / camera.ppc} color="#fff4aa55" />
+    <Circle cx={x} cy={y} r={14 / camera.ppc} color="#fff4aa" style="stroke" strokeWidth={2 / camera.ppc} />
     <Group transform={markerTransform}><Path path={arrow} color="#ff943c" /></Group>
   </Group> : <Group transform={markerTransform}><Path path={arrow} color="#ffc36b" /></Group>;
 }
 
-export default function WorldMap({ meta, layer, focus, zoomRequest, selectedAgentId, selectedAgent, selectedObjectId, objectCatalog, following, active, onAgentPress, onObjectPress, onManualMove }: Props) {
+export default function WorldMap({ meta, layer, focus, zoomRequest, selectedAgentId, selectedAgent, selectedObject, objectCatalog, following, active, onAgentPress, onObjectPress, onManualMove }: Props) {
   const [size, setSize] = useState({ width: 360, height: 600 });
   const [camera, setCamera] = useState<Camera>({ cx: meta.width / 2, cy: meta.height / 2, ppc: 4 });
   const [tileVersion, setTileVersion] = useState(0);
@@ -101,19 +104,20 @@ export default function WorldMap({ meta, layer, focus, zoomRequest, selectedAgen
   const [networkError, setNetworkError] = useState<string | null>(null);
   const cache = useRef(new Map<string, CachedTile>());
   const inFlight = useRef(new Set<string>());
-  const treeImage = useImage(require('../assets/objects/tree.png'));
-  const pineImage = useImage(require('../assets/objects/pine_tree.png'));
-  const rockImage = useImage(require('../assets/objects/rock.png'));
-  const slateImage = useImage(require('../assets/objects/slate_rock.png'));
-  const foodImage = useImage(require('../assets/objects/food.png'));
-  const blueberryImage = useImage(require('../assets/objects/blueberry_bush.png'));
-  const waterImage = useImage(require('../assets/objects/water_source.png'));
-  const restImage = useImage(require('../assets/objects/rest_spot.png'));
+  const treeImage = useImage(OBJECT_IMAGE_SOURCES.tree);
+  const pineImage = useImage(OBJECT_IMAGE_SOURCES.pine_tree);
+  const rockImage = useImage(OBJECT_IMAGE_SOURCES.rock);
+  const slateImage = useImage(OBJECT_IMAGE_SOURCES.slate_rock);
+  const foodImage = useImage(OBJECT_IMAGE_SOURCES.food);
+  const blueberryImage = useImage(OBJECT_IMAGE_SOURCES.blueberry_bush);
+  const waterImage = useImage(OBJECT_IMAGE_SOURCES.water_source);
+  const restImage = useImage(OBJECT_IMAGE_SOURCES.rest_spot);
   const spriteImages: Record<string, SkImage | null> = {
     tree: treeImage, pine_tree: pineImage, rock: rockImage, slate_rock: slateImage,
     food: foodImage, blueberry_bush: blueberryImage, water_source: waterImage, rest_spot: restImage,
   };
   const definitions = useMemo(() => Object.fromEntries(objectCatalog?.definitions.map((definition) => [definition.id, definition]) ?? []), [objectCatalog]);
+  const selectedObjectSprite = selectedObject ? spriteImages[definitions[selectedObject.definitionId ?? selectedObject.type]?.sprite ?? selectedObject.type] : null;
 
   const cx = useSharedValue(camera.cx);
   const cy = useSharedValue(camera.cy);
@@ -285,18 +289,67 @@ export default function WorldMap({ meta, layer, focus, zoomRequest, selectedAgen
   }, [agents, selectedAgent]);
   const selectedSnapshot = renderAgents.find((agent) => agent.id === selectedAgentId);
   const followedAgent = useSharedValue<Agent | null>(selectedSnapshot ?? null);
-  useEffect(() => { followedAgent.value = selectedSnapshot ?? null; }, [followedAgent, selectedSnapshot]);
+  const selectedWorldX = useSharedValue(selectedSnapshot ? selectedSnapshot.x + 0.5 : 0);
+  const selectedWorldY = useSharedValue(selectedSnapshot ? selectedSnapshot.y + 0.5 : 0);
+  const selectedObjectX = useSharedValue(selectedObject?.x ?? 0);
+  const selectedObjectY = useSharedValue(selectedObject?.y ?? 0);
+  useEffect(() => {
+    followedAgent.value = selectedSnapshot ?? null;
+    if (selectedSnapshot) {
+      selectedWorldX.value = selectedSnapshot.x + 0.5;
+      selectedWorldY.value = selectedSnapshot.y + 0.5;
+    }
+  }, [followedAgent, selectedSnapshot, selectedWorldX, selectedWorldY]);
+  useEffect(() => {
+    selectedObjectX.value = selectedObject?.x ?? 0;
+    selectedObjectY.value = selectedObject?.y ?? 0;
+  }, [selectedObject, selectedObjectX, selectedObjectY]);
+  const selectedObjectMarkX = useDerivedValue(() => {
+    const raw = selectedObjectX.value + 0.5;
+    return raw + Math.round((cx.value - raw) / meta.width) * meta.width;
+  });
+  const selectedObjectMarkY = useDerivedValue(() => {
+    const raw = selectedObjectY.value + 0.5;
+    return raw + Math.round((cy.value - raw) / meta.height) * meta.height;
+  });
+  const selectedObjectImageX = useDerivedValue(() => selectedObjectMarkX.value - 12 / ppc.value);
+  const selectedObjectImageY = useDerivedValue(() => selectedObjectMarkY.value - 12 / ppc.value);
+  const selectedObjectImageSize = useDerivedValue(() => 24 / ppc.value);
+  const selectedObjectRingRadius = useDerivedValue(() => 14 / ppc.value);
+  const selectedObjectRingWidth = useDerivedValue(() => 2 / ppc.value);
   useFrameCallback(() => {
-    if (!followEnabled.value || !followedAgent.value) return;
+    if (!followedAgent.value) return;
     const point = interpolateAgentPosition(followedAgent.value, Date.now(), meta.simulation.tickMs, meta.width, meta.height);
-    cx.value = point.x + 0.5 + Math.round((cx.value - point.x - 0.5) / meta.width) * meta.width;
-    cy.value = point.y + 0.5 + Math.round((cy.value - point.y - 0.5) / meta.height) * meta.height;
+    selectedWorldX.value = point.x + 0.5;
+    selectedWorldY.value = point.y + 0.5;
+    if (!followEnabled.value) return;
+    cx.value = selectedWorldX.value + Math.round((cx.value - selectedWorldX.value) / meta.width) * meta.width;
+    cy.value = selectedWorldY.value + Math.round((cy.value - selectedWorldY.value) / meta.height) * meta.height;
     const now = Date.now();
     if (now - lastFollowCommitAt.value >= 500) {
       lastFollowCommitAt.value = now;
       runOnJS(commitCamera)(cx.value, cy.value, ppc.value);
     }
-  }, active && following);
+  }, active && !!selectedSnapshot && !selectedAgent?.dead);
+  const selectionLabel = selectedAgentId && !selectedAgent?.dead && selectedSnapshot
+    ? `Agent ${selectedAgentId}`
+    : selectedObject
+      ? definitions[selectedObject.definitionId ?? selectedObject.type]?.name ?? selectedObject.type.replace('_', ' ')
+      : null;
+  const selectionLabelStyle = useAnimatedStyle(() => {
+    const rawX = selectedAgentId ? selectedWorldX.value : selectedObjectX.value + 0.5;
+    const rawY = selectedAgentId ? selectedWorldY.value : selectedObjectY.value + 0.5;
+    const wx = rawX + Math.round((cx.value - rawX) / meta.width) * meta.width;
+    const wy = rawY + Math.round((cy.value - rawY) / meta.height) * meta.height;
+    const sx = size.width / 2 + (wx - cx.value) * ppc.value;
+    const sy = size.height / 2 + (wy - cy.value) * ppc.value;
+    const inside = sx >= 14 && sx <= size.width - 14 && sy >= 14 && sy <= size.height - 14;
+    return {
+      opacity: inside ? 1 : 0,
+      left: Math.max(8, Math.min(size.width - 158, sx + 17)),
+      top: Math.max(8, Math.min(size.height - 36, sy - 30)),
+    };
+  });
   const pathShapes = useMemo(() => {
     if (!selectedSnapshot?.path?.length) return [];
     return wrappedPathSegments(selectedSnapshot, selectedSnapshot.path, { x: camera.cx, y: camera.cy }, meta.width, meta.height)
@@ -387,16 +440,25 @@ export default function WorldMap({ meta, layer, focus, zoomRequest, selectedAgen
                   : object.type === 'rock'
                     ? <Rect x={x - 0.9} y={y - 0.9} width={1.8} height={1.8} color={color} />
                     : <Circle cx={x} cy={y} r={1.1} color={color} />}
-                {selectedObjectId === object.id && <Circle cx={x} cy={y} r={Math.max(1.5, iconSize / 2 + 0.3)}
-                  color="#fff4aa" style="stroke" strokeWidth={Math.max(0.12, 2 / camera.ppc)} />}
               </Group>;
             })}
+            {selectedObject && <Group>
+              {selectedObjectSprite && (camera.ppc < 2.2 || !objects.some((item) => item.id === selectedObject.id)) && <Image
+                image={selectedObjectSprite}
+                x={selectedObjectImageX} y={selectedObjectImageY}
+                width={selectedObjectImageSize} height={selectedObjectImageSize} fit="fill" />}
+              <Circle cx={selectedObjectMarkX} cy={selectedObjectMarkY}
+                r={selectedObjectRingRadius} color="#fff4aa" style="stroke" strokeWidth={selectedObjectRingWidth} />
+            </Group>}
             {pathShapes.map((shape, index) => <Path key={index} path={shape} color="#ffe06a" style="stroke"
               strokeWidth={Math.max(0.12, 2.5 / camera.ppc)} />)}
             {renderAgents.map((agent) => <AgentMarker key={agent.id} agent={agent}
               selected={selectedAgentId === agent.id} camera={camera} centerX={cx} centerY={cy} meta={meta} active={active} />)}
           </Group>
         </Canvas>
+        {selectionLabel && <Animated.View pointerEvents="none" style={[styles.selectionLabel, selectionLabelStyle]}>
+          <Text numberOfLines={1} style={styles.selectionLabelText}>{selectionLabel}</Text>
+        </Animated.View>}
         {networkError && <View style={styles.error}><Text style={styles.errorText}>{networkError}</Text></View>}
         <View pointerEvents="none" style={styles.coordinates}>
           <Text style={styles.coordinateText}>{wrap(Math.floor(camera.cx), meta.width)}, {wrap(Math.floor(camera.cy), meta.height)} · {camera.ppc.toFixed(1)}×</Text>
@@ -410,6 +472,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden', backgroundColor: '#101b25' },
   coordinates: { position: 'absolute', left: 14, bottom: 15, backgroundColor: '#0a1520cc', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   coordinateText: { color: '#cfdae3', fontSize: 11, fontVariant: ['tabular-nums'] },
+  selectionLabel: { position: 'absolute', maxWidth: 150, paddingHorizontal: 7, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#fff4aa', backgroundColor: '#142631ed' },
+  selectionLabelText: { color: '#fff4aa', fontSize: 11, fontWeight: '700' },
   error: { position: 'absolute', left: 12, right: 12, top: 12, padding: 10, borderRadius: 10, backgroundColor: '#512b2be8' },
   errorText: { color: '#ffe4e1', fontSize: 12 },
 });

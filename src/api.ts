@@ -1,4 +1,4 @@
-import type { Agent, Chunk, ObjectCatalog, ViewRect, WorldMeta, WorldObject } from './types';
+import type { Agent, Chunk, ObjectCatalog, ViewRect, WorldMeta, WorldObject, WorldObjectDetail } from './types';
 
 // Public read-only API. This value is bundled into the app; never put secrets here.
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL?.trim()
@@ -19,6 +19,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const getMeta = () => request<WorldMeta>('/api/world/meta');
 export const getStatus = () => request<{ tickCount: number; agentCount: number; tickMs: number }>('/api/simulation/status');
 export const getObjectCatalog = () => request<ObjectCatalog>('/api/object-definitions');
+export const getObject = (id: string) => request<WorldObjectDetail>(`/api/entities/${encodeURIComponent(id)}`);
 
 export async function getAgent(id: string): Promise<Agent> {
   const requestedAt = Date.now();

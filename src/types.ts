@@ -23,6 +23,7 @@ export interface Agent {
   x: number;
   y: number;
   state: string;
+  currentAction?: string | null;
   dead?: boolean;
   currentGoal?: { type: string; targetX: number; targetY: number } | null;
   hunger?: number;
@@ -38,6 +39,10 @@ export interface Agent {
   currentTick?: number;
   isMoving?: boolean;
   timelineTickAt?: number;
+  pathRemaining?: number;
+  traits?: Record<string, number | string | boolean>;
+  memory?: { kind?: string; type?: string; x?: number; y?: number; confidence?: number }[];
+  inventory?: unknown[];
 }
 
 export interface WorldObject {
@@ -48,6 +53,17 @@ export interface WorldObject {
   definitionId?: string;
 }
 
+export interface FoodState {
+  stock: number;
+  capacity: number;
+  depleted: boolean;
+  ticksUntilRegrow: number;
+}
+
+export interface WorldObjectDetail extends WorldObject {
+  food?: FoodState;
+}
+
 export interface ObjectDefinition {
   id: string;
   name: string;
@@ -55,6 +71,12 @@ export interface ObjectDefinition {
   behavior: WorldObject['type'];
   color: string;
   sprite: string;
+  spawn?: {
+    strategy: string;
+    preferredGroundTypes?: string[];
+    minHeight?: number;
+    maxHeight?: number;
+  };
 }
 
 export interface ObjectCatalog {
