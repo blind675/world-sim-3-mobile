@@ -24,6 +24,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
     "icons": "node scripts/generate-icons.mjs"
   },
   "private": true

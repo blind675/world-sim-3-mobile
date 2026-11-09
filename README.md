@@ -2,7 +2,7 @@
 
 Native iOS and Android viewer for the FlatWorld simulation. This is an Expo and React Native application with a Skia terrain renderer. It talks directly to the public, read-only API in [world-sim-3-server](https://github.com/blind675/world-sim-3-server). The web viewer remains a separate project.
 
-Routine work is committed to `staging`; `main` is reserved for an explicitly requested production release. See the backend's [release workflow](https://github.com/blind675/world-sim-3-server/blob/staging/docs/RELEASE_WORKFLOW.md). The TestFlight workflow listens to `main`, so staging pushes do not start production iOS builds.
+Routine work is committed to `staging`; `main` is reserved for an explicitly requested production release. See the backend's [release workflow](https://github.com/blind675/world-sim-3-server/blob/staging/docs/RELEASE_WORKFLOW.md) and [simulation roadmap](https://github.com/blind675/world-sim-3-server/blob/staging/docs/SIMULATION_ROADMAP.md). The TestFlight workflow listens to `main`, so staging pushes do not start production iOS builds.
 
 ## Run
 
@@ -16,7 +16,7 @@ npm start
 
 Open the Expo QR code on a phone with a compatible Expo Go build, or create an Expo development build. Development builds are recommended for testing native behavior and for future store releases. `npm run ios` and `npm run android` launch local simulators if installed. The app defaults to the deployed Railway API; set `EXPO_PUBLIC_API_URL` to a different HTTPS API origin for another environment. This is a public client variable, so it must never contain an API control token.
 
-The app loads world metadata, cached terrain chunks, and nearby objects and agents. Pan and pinch the map, tap an agent or object for details, or use **Find agent** to jump to any living agent. **Follow agent** keeps the camera centered on its current position. Manual panning turns follow off. Polling pauses while the app is in the background.
+The app loads world metadata, cached terrain chunks, the object catalogue, and nearby objects and agents. Its bundled object PNGs were exported from the web viewer's SVG artwork; unknown catalogue sprites use a colored fallback. The selected agent's route and timed movement are drawn from the read-only API without requests on animation frames. Pan and pinch the map, tap an agent or object for details, or use **Find agent** to jump to any living agent. **Follow agent** keeps the camera centered on its current position. Manual panning turns follow off. Polling pauses while the app is in the background.
 
 The app icon assets are generated from `scripts/generate-icons.mjs` with `npm run icons`.
 
@@ -24,6 +24,7 @@ The app icon assets are generated from `scripts/generate-icons.mjs` with `npm ru
 
 ```sh
 npm run typecheck
+npm test
 npx expo export --platform ios --platform android
 ```
 

@@ -30,6 +30,14 @@ export interface Agent {
   tiredness?: number;
   age?: number;
   sex?: string;
+  facing?: number;
+  path?: { x: number; y: number }[];
+  movementStartPos?: { x: number; y: number } | null;
+  targetPos?: { x: number; y: number } | null;
+  movementStartTick?: number | null;
+  currentTick?: number;
+  isMoving?: boolean;
+  timelineTickAt?: number;
 }
 
 export interface WorldObject {
@@ -37,6 +45,20 @@ export interface WorldObject {
   type: 'tree' | 'rock' | 'food' | 'water_source' | 'rest_spot';
   x: number;
   y: number;
+  definitionId?: string;
+}
+
+export interface ObjectDefinition {
+  id: string;
+  name: string;
+  category: string;
+  behavior: WorldObject['type'];
+  color: string;
+  sprite: string;
+}
+
+export interface ObjectCatalog {
+  definitions: ObjectDefinition[];
 }
 
 export interface ViewRect { x: number; y: number; w: number; h: number }

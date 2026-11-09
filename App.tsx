@@ -3,9 +3,9 @@ import { ActivityIndicator, AppState, FlatList, Modal, Pressable, ScrollView, St
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { API_URL, getAgent, getAgents, getMeta, getStatus } from './src/api';
+import { API_URL, getAgent, getAgents, getMeta, getObjectCatalog, getStatus } from './src/api';
 import WorldMap, { type FocusRequest, type ZoomRequest } from './src/WorldMap';
-import type { Agent, Layer, WorldMeta, WorldObject } from './src/types';
+import type { Agent, Layer, ObjectCatalog, WorldMeta, WorldObject } from './src/types';
 
 const LAYERS: { id: Layer; title: string }[] = [
   { id: 'height', title: 'Elevation' },
@@ -45,6 +45,7 @@ function Need({ title, value }: { title: string; value?: number }) {
 
 export default function App() {
   const [meta, setMeta] = useState<WorldMeta | null>(null);
+  const [objectCatalog, setObjectCatalog] = useState<ObjectCatalog | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(true);
   const initialFocusLoaded = useRef(false);
@@ -75,6 +76,11 @@ export default function App() {
     getMeta().then(setMeta).catch((reason) => setError(String(reason)));
   }, []);
   useEffect(() => { loadWorld(); }, [loadWorld]);
+  useEffect(() => {
+    let cancelled = false;
+    getObjectCatalog().then((catalog) => { if (!cancelled) setObjectCatalog(catalog); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!meta || !active || initialFocusLoaded.current) return;
@@ -115,12 +121,6 @@ export default function App() {
     return () => { cancelled = true; clearInterval(timer); };
   }, [selectedId, active, meta?.simulation.tickMs]);
 
-  useEffect(() => {
-    if (follow && selectedAgent && !selectedAgent.dead) {
-      setFocus({ x: selectedAgent.x, y: selectedAgent.y, key: Date.now(), duration: Math.max(700, Math.min(1500, meta?.simulation.tickMs ?? 1000)) });
-    }
-  }, [follow, selectedAgent?.x, selectedAgent?.y, selectedAgent?.dead, meta?.simulation.tickMs]);
-
   const refreshAgents = useCallback(() => {
     setFinderLoading(true); setFinderError(null);
     getAgents().then(setAgents).catch((reason) => setFinderError(String(reason))).finally(() => setFinderLoading(false));
@@ -147,7 +147,7 @@ export default function App() {
 
     <View style={styles.map}>
       {meta ? <WorldMap meta={meta} layer={layer} focus={focus} zoomRequest={zoomRequest}
-        selectedAgentId={selectedId} active={active} onAgentPress={selectAgent}
+        selectedAgentId={selectedId} selectedAgent={selectedAgent} selectedObjectId={selectedObject?.id ?? null} objectCatalog={objectCatalog} following={follow} active={active} onAgentPress={selectAgent}
         onObjectPress={(object) => {
           setSelectedObject(object);
           if (object) { setSelectedId(null); setSelectedAgent(null); setFollow(false); setDetailsOpen(true); }
@@ -193,7 +193,7 @@ export default function App() {
       </Pressable>)}
     </Sheet>
 
-    <Sheet visible={detailsOpen} title={selectedAgent ? `Agent ${selectedAgent.id}` : selectedObject ? selectedObject.type.replace('_', ' ') : 'Details'} onClose={() => setDetailsOpen(false)}>
+    <Sheet visible={detailsOpen} title={selectedAgent ? `Agent ${selectedAgent.id}` : selectedObject ? objectCatalog?.definitions.find((definition) => definition.id === selectedObject.definitionId)?.name ?? selectedObject.type.replace('_', ' ') : 'Details'} onClose={() => setDetailsOpen(false)}>
       {selectedAgent ? <ScrollView contentContainerStyle={styles.detail}>
         <Text style={styles.detailState}>{selectedAgent.dead ? 'Deceased' : selectedAgent.state}</Text>
         <Text style={styles.detailLine}>Position  {Math.round(selectedAgent.x)}, {Math.round(selectedAgent.y)}</Text>
@@ -205,7 +205,7 @@ export default function App() {
           {!selectedAgent.dead && <Button title={follow ? 'Following ✓' : 'Follow agent'} active={follow} onPress={() => { setFollow((value) => !value); setDetailsOpen(false); }} />}
         </View>
       </ScrollView> : selectedObject ? <View style={styles.detail}>
-        <Text style={styles.detailState}>{selectedObject.type.replace('_', ' ')}</Text>
+        <Text style={styles.detailState}>{objectCatalog?.definitions.find((definition) => definition.id === selectedObject.definitionId)?.name ?? selectedObject.type.replace('_', ' ')}</Text>
         <Text style={styles.detailLine}>Position  {selectedObject.x}, {selectedObject.y}</Text>
         <Text style={styles.detailLine}>ID  {selectedObject.id}</Text>
       </View> : <Text style={styles.muted}>Tap an agent or object on the map.</Text>}

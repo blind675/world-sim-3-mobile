@@ -1,4 +1,4 @@
-import type { Agent, Chunk, ViewRect, WorldMeta, WorldObject } from './types';
+import type { Agent, Chunk, ObjectCatalog, ViewRect, WorldMeta, WorldObject } from './types';
 
 // Public read-only API. This value is bundled into the app; never put secrets here.
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL?.trim()
@@ -18,7 +18,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const getMeta = () => request<WorldMeta>('/api/world/meta');
 export const getStatus = () => request<{ tickCount: number; agentCount: number; tickMs: number }>('/api/simulation/status');
-export const getAgent = (id: string) => request<Agent>(`/api/agents/${encodeURIComponent(id)}`);
+export const getObjectCatalog = () => request<ObjectCatalog>('/api/object-definitions');
+
+export async function getAgent(id: string): Promise<Agent> {
+  const requestedAt = Date.now();
+  const agent = await request<Agent & { serverTime?: number; lastTickAt?: number | null }>(`/api/agents/${encodeURIComponent(id)}`);
+  return { ...agent, timelineTickAt: estimateTickAt(agent, requestedAt, Date.now()) };
+}
 export async function getAgents(): Promise<Agent[]> {
   const data = await request<{ agents: Agent[] }>('/api/agents');
   return data.agents.filter((agent) => !agent.dead);
@@ -38,6 +44,14 @@ export async function getEntities(rect: ViewRect, types: string[]): Promise<(Age
     x: String(rect.x), y: String(rect.y), w: String(rect.w), h: String(rect.h),
     types: types.join(','),
   });
-  const data = await request<{ objects: (Agent | WorldObject)[] }>(`/api/entities/in-view?${params}`);
-  return data.objects;
+  const requestedAt = Date.now();
+  const data = await request<{ objects: (Agent | WorldObject)[]; serverTime?: number; lastTickAt?: number | null }>(`/api/entities/in-view?${params}`);
+  const timelineTickAt = estimateTickAt(data, requestedAt, Date.now());
+  return data.objects.map((entity) => entity.type === 'agent' ? { ...entity, timelineTickAt } : entity);
+}
+
+export function estimateTickAt(timing: { serverTime?: number; lastTickAt?: number | null }, requestedAt: number, receivedAt: number): number | undefined {
+  if (timing.lastTickAt == null || timing.serverTime == null || !Number.isFinite(timing.lastTickAt) || !Number.isFinite(timing.serverTime)) return undefined;
+  const transit = Math.max(0, receivedAt - requestedAt) / 2;
+  return receivedAt - (timing.serverTime - timing.lastTickAt) - transit;
 }
