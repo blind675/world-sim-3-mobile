@@ -20,6 +20,8 @@ The app loads world metadata, cached terrain chunks, the object catalogue, and n
 
 The app icon assets are generated from `scripts/generate-icons.mjs` with `npm run icons`.
 
+With the milestone 3 backend, the app displays simulated day and time and animates multi-cell walking segments along the route, including bends and wrapped edges. Older backends continue to use the single-cell timing fallback.
+
 ## Checks
 
 ```sh

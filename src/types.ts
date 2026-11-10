@@ -5,7 +5,7 @@ export interface WorldMeta {
   chunkSize: number;
   wrapMode: 'toroidal';
   terrain: { minHeight: number; maxHeight: number; seaLevel: number };
-  simulation: { tickMs: number };
+  simulation: { tickMs: number; ticksPerDay?: number };
 }
 
 export type Layer = 'height' | 'groundType' | 'waterDepth';
@@ -38,6 +38,7 @@ export interface Agent {
   movementStartTick?: number | null;
   currentTick?: number;
   isMoving?: boolean;
+  moveCellsPerStep?: number;
   timelineTickAt?: number;
   pathRemaining?: number;
   traits?: Record<string, number | string | boolean>;

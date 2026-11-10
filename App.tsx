@@ -65,7 +65,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(true);
   const initialFocusLoaded = useRef(false);
-  const [status, setStatus] = useState<{ tickCount: number; agentCount: number } | null>(null);
+  const [status, setStatus] = useState<{ tickCount: number; agentCount: number;
+    clock?: { day: number; hour: number; minute: number } } | null>(null);
   const [layer, setLayer] = useState<Layer>('height');
   const [focus, setFocus] = useState<FocusRequest | null>(null);
   const [zoomRequest, setZoomRequest] = useState<ZoomRequest | null>(null);
@@ -200,7 +201,9 @@ export default function App() {
     <StatusBar style="light" />
     <View style={styles.header}>
       <View><Text style={styles.eyebrow}>FLATWORLD / LIVE</Text><Text style={styles.title}>World Simulator</Text></View>
-      <Text style={styles.status}>{status ? `Tick ${status.tickCount.toLocaleString()} · ${status.agentCount} alive` : 'Connecting…'}</Text>
+      <Text style={styles.status}>{status ? `${status.clock
+        ? `Day ${status.clock.day}, ${String(status.clock.hour).padStart(2, '0')}:${String(status.clock.minute).padStart(2, '0')} · `
+        : ''}${status.agentCount} alive · Tick ${status.tickCount.toLocaleString()}` : 'Connecting…'}</Text>
     </View>
 
     <View style={styles.map}>
