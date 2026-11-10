@@ -23,6 +23,18 @@ test('movement and route cross a wrapped edge without jumping across the world',
   assert.deepEqual(segments, [[{ x: -0.5, y: 5.5 }, { x: 0.5, y: 5.5 }, { x: 1.5, y: 5.5 }]]);
 });
 
+test('fast walking follows a multi-cell turn and wrapped edge', () => {
+  const agent = {
+    x: 98, y: 5, isMoving: true, movementStartPos: { x: 98, y: 5 },
+    moveCellsPerStep: 3,
+    path: [{ x: 99, y: 5 }, { x: 0, y: 5 }, { x: 0, y: 6 }, { x: 1, y: 6 }],
+    timelineTickAt: 100_000,
+  };
+  assert.deepEqual(interpolateAgentPosition(agent, 105_000, 10_000, 100, 100), { x: 99.5, y: 5 });
+  assert.deepEqual(interpolateAgentPosition(agent, 110_000, 10_000, 100, 100), { x: 0, y: 6 });
+  assert.deepEqual(interpolateAgentPosition(agent, 125_000, 10_000, 100, 100), { x: 0.5, y: 6 });
+});
+
 test('a broken route does not draw a long misleading line', () => {
   const segments = wrappedPathSegments({ x: 3, y: 3 }, [{ x: 4, y: 3 }, { x: 30, y: 3 }, { x: 31, y: 3 }], { x: 3, y: 3 }, 100, 100);
   assert.equal(segments.length, 2);

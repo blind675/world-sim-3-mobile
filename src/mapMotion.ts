@@ -2,8 +2,8 @@ import type { Agent } from './types';
 
 export type Point = { x: number; y: number };
 
-// Server movement uses one tick to traverse a cell and one tick before the
-// following traversal. Keep prediction short when the server or network stops.
+// Server movement traverses a bounded path segment over one tick, then waits
+// a tick before the next segment. Keep prediction short if updates stop.
 export function interpolateAgentPosition(agent: Agent, at: number, tickMs: number, worldW: number, worldH: number): Point {
   'worklet';
   const path = agent.path ?? [];
@@ -14,15 +14,23 @@ export function interpolateAgentPosition(agent: Agent, at: number, tickMs: numbe
   const firstStepAt = agent.timelineTickAt + (agent.isMoving ? 0 : tickMs);
   const elapsed = Math.min(at - firstStepAt, 4 * tickMs);
   if (elapsed <= 0) return { x: origin.x, y: origin.y };
+  const stride = Math.max(1, Math.floor(agent.moveCellsPerStep ?? 1));
   const stepIndex = Math.floor(elapsed / (2 * tickMs));
-  if (stepIndex >= path.length) return path[path.length - 1];
-  const from = stepIndex === 0 ? origin : path[stepIndex - 1];
+  const startIndex = stepIndex * stride;
+  if (startIndex >= path.length) return path[path.length - 1];
+  const segmentLength = Math.min(stride, path.length - startIndex);
   const progress = Math.min(1, (elapsed % (2 * tickMs)) / tickMs);
-  const dx = ((path[stepIndex].x - from.x + worldW * 1.5) % worldW) - worldW / 2;
-  const dy = ((path[stepIndex].y - from.y + worldH * 1.5) % worldH) - worldH / 2;
+  const distance = progress * segmentLength;
+  const cellIndex = Math.min(segmentLength - 1, Math.floor(distance));
+  const from = cellIndex === 0
+    ? (startIndex === 0 ? origin : path[startIndex - 1])
+    : path[startIndex + cellIndex - 1];
+  const to = path[startIndex + cellIndex];
+  const dx = ((to.x - from.x + worldW * 1.5) % worldW) - worldW / 2;
+  const dy = ((to.y - from.y + worldH * 1.5) % worldH) - worldH / 2;
   return {
-    x: ((from.x + dx * progress) % worldW + worldW) % worldW,
-    y: ((from.y + dy * progress) % worldH + worldH) % worldH,
+    x: ((from.x + dx * (distance - cellIndex)) % worldW + worldW) % worldW,
+    y: ((from.y + dy * (distance - cellIndex)) % worldH + worldH) % worldH,
   };
 }
 
