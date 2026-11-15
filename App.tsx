@@ -318,7 +318,7 @@ export default function App() {
           {objectDetail?.id === selectedObject.id && objectDetail.food
             ? <Text style={styles.detailLine}>{objectDetail.food.depleted
               ? `Depleted · regrows in ${objectDetail.food.ticksUntilRegrow} ticks`
-              : `${objectDetail.food.stock} of ${objectDetail.food.capacity} servings available`}</Text>
+              : `${objectDetail.food.stock} of ${objectDetail.food.capacity} servings available${objectDetail.food.ticksUntilExpiry != null ? ` · rots in ${objectDetail.food.ticksUntilExpiry} ticks` : ''}`}</Text>
             : <Text style={styles.detailHint}>{objectError ?? (objectDetail?.id === selectedObject.id ? 'Live food stock is not available on this server yet.' : 'Loading live food stock…')}</Text>}
         </>}
         {objectError && selectedObject.type !== 'food' && <Text style={styles.detailHint}>{objectError}</Text>}

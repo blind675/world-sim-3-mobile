@@ -110,11 +110,16 @@ export default function WorldMap({ meta, layer, focus, zoomRequest, selectedAgen
   const slateImage = useImage(OBJECT_IMAGE_SOURCES.slate_rock);
   const foodImage = useImage(OBJECT_IMAGE_SOURCES.food);
   const blueberryImage = useImage(OBJECT_IMAGE_SOURCES.blueberry_bush);
+  const mushroomImage = useImage(OBJECT_IMAGE_SOURCES.forest_mushroom);
+  const reedsImage = useImage(OBJECT_IMAGE_SOURCES.shore_reeds);
+  const fallenWoodImage = useImage(OBJECT_IMAGE_SOURCES.fallen_wood);
   const waterImage = useImage(OBJECT_IMAGE_SOURCES.water_source);
   const restImage = useImage(OBJECT_IMAGE_SOURCES.rest_spot);
   const spriteImages: Record<string, SkImage | null> = {
     tree: treeImage, pine_tree: pineImage, rock: rockImage, slate_rock: slateImage,
-    food: foodImage, blueberry_bush: blueberryImage, water_source: waterImage, rest_spot: restImage,
+    food: foodImage, blueberry_bush: blueberryImage, forest_mushroom: mushroomImage,
+    shore_reeds: reedsImage, fallen_wood: fallenWoodImage,
+    water_source: waterImage, rest_spot: restImage,
   };
   const definitions = useMemo(() => Object.fromEntries(objectCatalog?.definitions.map((definition) => [definition.id, definition]) ?? []), [objectCatalog]);
   const selectedObjectSprite = selectedObject ? spriteImages[definitions[selectedObject.definitionId ?? selectedObject.type]?.sprite ?? selectedObject.type] : null;
