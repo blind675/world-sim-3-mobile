@@ -279,6 +279,7 @@ export default function App() {
           {detailTab === 'now' ? <>
             <Text style={styles.detailState}>{selectedAgent.dead ? 'Deceased' : readable(selectedAgent.state)}</Text>
             <Text style={styles.detailLine}>Action  {readable(selectedAgent.currentAction)}</Text>
+            <Text style={styles.detailLine}>Behavior  {readable(selectedAgent.behavior?.id)}</Text>
             <Text style={styles.detailLine}>Goal  {selectedAgent.currentGoal ? `${readable(selectedAgent.currentGoal.type)} · ${selectedAgent.currentGoal.targetX}, ${selectedAgent.currentGoal.targetY}` : 'None'}</Text>
             <Text style={styles.detailLine}>Route  {selectedAgent.pathRemaining ?? selectedAgent.path?.length ?? 0} cells remaining</Text>
             <Text style={styles.detailLine}>Position  {Math.round(selectedAgent.x)}, {Math.round(selectedAgent.y)}</Text>

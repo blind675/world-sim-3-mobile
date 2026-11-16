@@ -24,6 +24,7 @@ export interface Agent {
   y: number;
   state: string;
   currentAction?: string | null;
+  behavior?: { id: string; startedTick: number; stepIndex: number; stepTicksLeft: number } | null;
   dead?: boolean;
   currentGoal?: { type: string; targetX: number; targetY: number } | null;
   hunger?: number;
