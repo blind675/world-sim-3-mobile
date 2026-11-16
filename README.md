@@ -22,6 +22,8 @@ The app icon assets are generated from `scripts/generate-icons.mjs` with `npm ru
 
 With the milestone 3 backend, the app displays simulated day and time and animates multi-cell walking segments along the route, including bends and wrapped edges. Older backends continue to use the single-cell timing fallback.
 
+With the daily-rhythm backend, the status also labels day or night. Selected agent details show its sleep preference and effective vision range when the newer API fields are available.
+
 ## Checks
 
 ```sh

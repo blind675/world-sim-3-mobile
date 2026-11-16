@@ -43,6 +43,7 @@ export interface Agent {
   timelineTickAt?: number;
   pathRemaining?: number;
   traits?: Record<string, number | string | boolean>;
+  effectiveVisionRange?: number;
   memory?: { kind?: string; type?: string; x?: number; y?: number; confidence?: number }[];
   inventory?: unknown[];
 }
