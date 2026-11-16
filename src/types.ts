@@ -59,6 +59,8 @@ export interface FoodState {
   capacity: number;
   depleted: boolean;
   ticksUntilRegrow: number;
+  expiresAt?: number | null;
+  ticksUntilExpiry?: number | null;
 }
 
 export interface WorldObjectDetail extends WorldObject {
@@ -77,7 +79,9 @@ export interface ObjectDefinition {
     preferredGroundTypes?: string[];
     minHeight?: number;
     maxHeight?: number;
+    candidatesPerChunk?: number;
   };
+  lifecycle?: { dynamicLifetimeTicks: number };
 }
 
 export interface ObjectCatalog {
