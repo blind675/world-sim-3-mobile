@@ -10,6 +10,13 @@ export interface WorldMeta {
 
 export type Layer = 'height' | 'groundType' | 'waterDepth';
 
+export interface CarriedFruit {
+  kind: 'fruit';
+  sourceId: string;
+  definitionId: string | null;
+  pickedTick: number;
+}
+
 export interface Chunk {
   cx: number;
   cy: number;
@@ -54,7 +61,7 @@ export interface Agent {
   effectiveVisionRange?: number;
   temperatureC?: number;
   memory?: { kind?: string; type?: string; x?: number; y?: number; confidence?: number }[];
-  inventory?: unknown[];
+  inventory?: CarriedFruit[];
 }
 
 export interface WorldObject {

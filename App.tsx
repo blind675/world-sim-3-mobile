@@ -282,6 +282,7 @@ export default function App() {
           {detailTab === 'now' ? <>
             <Text style={styles.detailState}>{selectedAgent.dead ? 'Deceased' : readable(selectedAgent.state)}</Text>
             <Text style={styles.detailLine}>Action  {readable(selectedAgent.currentAction)}</Text>
+            <Text style={styles.detailLine}>Carrying  {selectedAgent.inventory ? selectedAgent.inventory[0] ? 'Fruit' : 'Nothing' : 'Loading…'}</Text>
             <Text style={styles.detailLine}>Behavior  {readable(selectedAgent.behavior?.id)}</Text>
             {selectedAgent.traits?.circadianType && <Text style={styles.detailLine}>Sleep rhythm  {readable(String(selectedAgent.traits.circadianType))}</Text>}
             {selectedAgent.effectiveVisionRange != null && <Text style={styles.detailLine}>Current vision  {selectedAgent.effectiveVisionRange} cells</Text>}
@@ -307,7 +308,6 @@ export default function App() {
             {selectedAgent.age != null && <Text style={styles.detailLine}>Age  {selectedAgent.ageDays ?? selectedAgent.age} simulated days</Text>}
             {selectedAgent.lifespanDays != null && <>
               <Text style={styles.detailLine}>Lifespan potential  {selectedAgent.lifespanDays} days</Text>
-              <Text style={styles.detailHint}>Age-related death is not active yet.</Text>
             </>}
             {selectedAgent.sex && <Text style={styles.detailLine}>Sex  {selectedAgent.sex}</Text>}
             <Text style={styles.detailSectionTitle}>Traits</Text>
@@ -318,6 +318,7 @@ export default function App() {
             <Text style={styles.detailLine}>Memories  {selectedAgent.memory?.length ?? 'Loading…'}</Text>
             {selectedAgent.memory?.slice(0, 8).map((entry, index) => <Text key={index} style={styles.detailLine}>• {readable(entry.kind ?? entry.type)}{entry.x != null && entry.y != null ? ` · ${entry.x}, ${entry.y}` : ''}{entry.confidence != null ? ` · ${Math.round(entry.confidence * 100)}% confidence` : ''}</Text>)}
             <Text style={styles.detailLine}>Inventory items  {selectedAgent.inventory?.length ?? 'Loading…'}</Text>
+            {selectedAgent.inventory?.[0] && <Text style={styles.detailLine}>Fruit source  {selectedAgent.inventory[0].sourceId}</Text>}
           </>}
         </ScrollView>
       </> : selectedId ? <View style={styles.detail}><Text style={styles.detailHint}>Agent {selectedId} is no longer available. Choose another living agent from Find agent.</Text></View>
