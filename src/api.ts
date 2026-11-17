@@ -18,7 +18,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const getMeta = () => request<WorldMeta>('/api/world/meta');
 export const getStatus = () => request<{ tickCount: number; agentCount: number; tickMs: number;
-  clock?: { day: number; hour: number; minute: number } }>('/api/simulation/status');
+  clock?: { day: number; hour: number; minute: number };
+  light?: { phase: 'day' | 'night'; level: number };
+  weather?: string;
+  temperatureC?: number }>('/api/simulation/status');
 export const getObjectCatalog = () => request<ObjectCatalog>('/api/object-definitions');
 export const getObject = (id: string) => request<WorldObjectDetail>(`/api/entities/${encodeURIComponent(id)}`);
 

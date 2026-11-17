@@ -66,7 +66,10 @@ export default function App() {
   const [active, setActive] = useState(true);
   const initialFocusLoaded = useRef(false);
   const [status, setStatus] = useState<{ tickCount: number; agentCount: number;
-    clock?: { day: number; hour: number; minute: number } } | null>(null);
+    clock?: { day: number; hour: number; minute: number };
+    light?: { phase: 'day' | 'night'; level: number };
+    weather?: string;
+    temperatureC?: number } | null>(null);
   const [layer, setLayer] = useState<Layer>('height');
   const [focus, setFocus] = useState<FocusRequest | null>(null);
   const [zoomRequest, setZoomRequest] = useState<ZoomRequest | null>(null);
@@ -202,8 +205,8 @@ export default function App() {
     <View style={styles.header}>
       <View><Text style={styles.eyebrow}>FLATWORLD / LIVE</Text><Text style={styles.title}>World Simulator</Text></View>
       <Text style={styles.status}>{status ? `${status.clock
-        ? `Day ${status.clock.day}, ${String(status.clock.hour).padStart(2, '0')}:${String(status.clock.minute).padStart(2, '0')} · `
-        : ''}${status.agentCount} alive · Tick ${status.tickCount.toLocaleString()}` : 'Connecting…'}</Text>
+        ? `Day ${status.clock.day}, ${String(status.clock.hour).padStart(2, '0')}:${String(status.clock.minute).padStart(2, '0')}${status.light ? ` ${status.light.phase}` : ''} · `
+        : ''}${status.agentCount} alive · Tick ${status.tickCount.toLocaleString()}${status.weather ? ` · ${readable(status.weather)}` : ''}` : 'Connecting…'}</Text>
     </View>
 
     <View style={styles.map}>
@@ -279,6 +282,11 @@ export default function App() {
           {detailTab === 'now' ? <>
             <Text style={styles.detailState}>{selectedAgent.dead ? 'Deceased' : readable(selectedAgent.state)}</Text>
             <Text style={styles.detailLine}>Action  {readable(selectedAgent.currentAction)}</Text>
+            <Text style={styles.detailLine}>Carrying  {selectedAgent.inventory ? selectedAgent.inventory[0] ? 'Fruit' : 'Nothing' : 'Loading…'}</Text>
+            <Text style={styles.detailLine}>Behavior  {readable(selectedAgent.behavior?.id)}</Text>
+            {selectedAgent.traits?.circadianType && <Text style={styles.detailLine}>Sleep rhythm  {readable(String(selectedAgent.traits.circadianType))}</Text>}
+            {selectedAgent.effectiveVisionRange != null && <Text style={styles.detailLine}>Current vision  {selectedAgent.effectiveVisionRange} cells</Text>}
+            {selectedAgent.temperatureC != null && <Text style={styles.detailLine}>Local air  {selectedAgent.temperatureC.toFixed(1)}°C</Text>}
             <Text style={styles.detailLine}>Goal  {selectedAgent.currentGoal ? `${readable(selectedAgent.currentGoal.type)} · ${selectedAgent.currentGoal.targetX}, ${selectedAgent.currentGoal.targetY}` : 'None'}</Text>
             <Text style={styles.detailLine}>Route  {selectedAgent.pathRemaining ?? selectedAgent.path?.length ?? 0} cells remaining</Text>
             <Text style={styles.detailLine}>Position  {Math.round(selectedAgent.x)}, {Math.round(selectedAgent.y)}</Text>
@@ -294,7 +302,13 @@ export default function App() {
           </> : <>
             <Text style={styles.detailSectionTitle}>Identity</Text>
             <Text style={styles.detailLine}>ID  {selectedAgent.id}</Text>
-            {selectedAgent.age != null && <Text style={styles.detailLine}>Age  {selectedAgent.age}</Text>}
+            {selectedAgent.species && <Text style={styles.detailLine}>Species  {selectedAgent.species}</Text>}
+            {selectedAgent.lifeStage && <Text style={styles.detailLine}>Life stage  {readable(selectedAgent.lifeStage)}</Text>}
+            {!!selectedAgent.parentIds?.length && <Text style={styles.detailLine}>Parents  {selectedAgent.parentIds.join(' + ')}</Text>}
+            {selectedAgent.age != null && <Text style={styles.detailLine}>Age  {selectedAgent.ageDays ?? selectedAgent.age} simulated days</Text>}
+            {selectedAgent.lifespanDays != null && <>
+              <Text style={styles.detailLine}>Lifespan potential  {selectedAgent.lifespanDays} days</Text>
+            </>}
             {selectedAgent.sex && <Text style={styles.detailLine}>Sex  {selectedAgent.sex}</Text>}
             <Text style={styles.detailSectionTitle}>Traits</Text>
             {Object.entries(selectedAgent.traits ?? {}).length
@@ -304,6 +318,7 @@ export default function App() {
             <Text style={styles.detailLine}>Memories  {selectedAgent.memory?.length ?? 'Loading…'}</Text>
             {selectedAgent.memory?.slice(0, 8).map((entry, index) => <Text key={index} style={styles.detailLine}>• {readable(entry.kind ?? entry.type)}{entry.x != null && entry.y != null ? ` · ${entry.x}, ${entry.y}` : ''}{entry.confidence != null ? ` · ${Math.round(entry.confidence * 100)}% confidence` : ''}</Text>)}
             <Text style={styles.detailLine}>Inventory items  {selectedAgent.inventory?.length ?? 'Loading…'}</Text>
+            {selectedAgent.inventory?.[0] && <Text style={styles.detailLine}>Fruit source  {selectedAgent.inventory[0].sourceId}</Text>}
           </>}
         </ScrollView>
       </> : selectedId ? <View style={styles.detail}><Text style={styles.detailHint}>Agent {selectedId} is no longer available. Choose another living agent from Find agent.</Text></View>

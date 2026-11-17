@@ -10,6 +10,13 @@ export interface WorldMeta {
 
 export type Layer = 'height' | 'groundType' | 'waterDepth';
 
+export interface CarriedFruit {
+  kind: 'fruit';
+  sourceId: string;
+  definitionId: string | null;
+  pickedTick: number;
+}
+
 export interface Chunk {
   cx: number;
   cy: number;
@@ -24,12 +31,21 @@ export interface Agent {
   y: number;
   state: string;
   currentAction?: string | null;
+  behavior?: { id: string; startedTick: number; stepIndex: number; stepTicksLeft: number } | null;
   dead?: boolean;
   currentGoal?: { type: string; targetX: number; targetY: number } | null;
   hunger?: number;
   thirst?: number;
   tiredness?: number;
   age?: number;
+  ageDays?: number;
+  birthTick?: number;
+  lifeStage?: 'juvenile' | 'adult' | 'elder';
+  species?: string;
+  templateId?: string;
+  lifespanDays?: number;
+  parentIds?: string[];
+  lastBirthTick?: number | null;
   sex?: string;
   facing?: number;
   path?: { x: number; y: number }[];
@@ -42,8 +58,10 @@ export interface Agent {
   timelineTickAt?: number;
   pathRemaining?: number;
   traits?: Record<string, number | string | boolean>;
+  effectiveVisionRange?: number;
+  temperatureC?: number;
   memory?: { kind?: string; type?: string; x?: number; y?: number; confidence?: number }[];
-  inventory?: unknown[];
+  inventory?: CarriedFruit[];
 }
 
 export interface WorldObject {

@@ -16,11 +16,18 @@ npm start
 
 Open the Expo QR code on a phone with a compatible Expo Go build, or create an Expo development build. Development builds are recommended for testing native behavior and for future store releases. `npm run ios` and `npm run android` launch local simulators if installed. The app defaults to the deployed Railway API; set `EXPO_PUBLIC_API_URL` to a different HTTPS API origin for another environment. This is a public client variable, so it must never contain an API control token.
 
-The app loads world metadata, cached terrain chunks, the object catalogue, and nearby objects and agents. Its bundled object PNGs were exported from the web viewer's SVG artwork, including mushrooms, reeds, and fallen wood; unknown catalogue sprites use a colored fallback. The selected agent's route and timed movement are drawn from the read-only API without requests on animation frames. Pan and pinch the map, tap an agent or object for details, or use **Find agent** to jump to any living agent. The selection card keeps the chosen agent or object visible after the details sheet closes; tap it for more information or use Locate to return to its position. The agent sheet groups current activity, needs, and deeper traits and memories. Food details show live stock and, for perishable offspring, the time until they rot. **Follow agent** keeps the camera centered on its current position. Manual panning turns follow off. Polling pauses while the app is in the background.
+The app loads world metadata, cached terrain chunks, the object catalogue, and nearby objects and agents. Its bundled object PNGs were exported from the web viewer's SVG artwork, including mushrooms, reeds, and fallen wood; unknown catalogue sprites use a colored fallback. The selected agent's route and timed movement are drawn from the read-only API without requests on animation frames. Pan and pinch the map, tap an agent or object for details, or use **Find agent** to jump to any living agent. The selection card keeps the chosen agent or object visible after the details sheet closes; tap it for more information or use Locate to return to its position. The agent sheet groups current activity, needs, and deeper traits and memories; the active backend behavior is shown when available. Food details show live stock and, for perishable offspring, the time until they rot. **Follow agent** keeps the camera centered on its current position. Manual panning turns follow off. Polling pauses while the app is in the background.
 
 The app icon assets are generated from `scripts/generate-icons.mjs` with `npm run icons`.
 
 With the milestone 3 backend, the app displays simulated day and time and animates multi-cell walking segments along the route, including bends and wrapped edges. Older backends continue to use the single-cell timing fallback.
+
+With the daily-rhythm backend, the status also labels day or night. Selected agent details show its sleep preference and effective vision range when the newer API fields are available.
+
+The climate backend adds a daily weather label and local air temperature in agent details. These fields are read-only and optional for compatibility with older servers.
+The More tab also shows species, life stage, simulated age, and lifespan potential from the milestone 8 backend when present. These fields remain optional for older servers.
+The milestone 9 backend adds parent IDs for newborns; the More tab shows them when present. Reproduction remains server-owned and has no public mobile control.
+With the milestone 11 backend, the Now tab shows whether the selected agent carries fruit, and More shows the fruit's source. The agent collects and eats it autonomously; the mobile viewer remains read-only.
 
 ## Checks
 
