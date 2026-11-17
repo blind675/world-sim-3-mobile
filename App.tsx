@@ -303,6 +303,7 @@ export default function App() {
             <Text style={styles.detailLine}>ID  {selectedAgent.id}</Text>
             {selectedAgent.species && <Text style={styles.detailLine}>Species  {selectedAgent.species}</Text>}
             {selectedAgent.lifeStage && <Text style={styles.detailLine}>Life stage  {readable(selectedAgent.lifeStage)}</Text>}
+            {!!selectedAgent.parentIds?.length && <Text style={styles.detailLine}>Parents  {selectedAgent.parentIds.join(' + ')}</Text>}
             {selectedAgent.age != null && <Text style={styles.detailLine}>Age  {selectedAgent.ageDays ?? selectedAgent.age} simulated days</Text>}
             {selectedAgent.lifespanDays != null && <>
               <Text style={styles.detailLine}>Lifespan potential  {selectedAgent.lifespanDays} days</Text>

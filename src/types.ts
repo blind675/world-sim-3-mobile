@@ -37,6 +37,8 @@ export interface Agent {
   species?: string;
   templateId?: string;
   lifespanDays?: number;
+  parentIds?: string[];
+  lastBirthTick?: number | null;
   sex?: string;
   facing?: number;
   path?: { x: number; y: number }[];
