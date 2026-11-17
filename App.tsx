@@ -67,7 +67,9 @@ export default function App() {
   const initialFocusLoaded = useRef(false);
   const [status, setStatus] = useState<{ tickCount: number; agentCount: number;
     clock?: { day: number; hour: number; minute: number };
-    light?: { phase: 'day' | 'night'; level: number } } | null>(null);
+    light?: { phase: 'day' | 'night'; level: number };
+    weather?: string;
+    temperatureC?: number } | null>(null);
   const [layer, setLayer] = useState<Layer>('height');
   const [focus, setFocus] = useState<FocusRequest | null>(null);
   const [zoomRequest, setZoomRequest] = useState<ZoomRequest | null>(null);
@@ -204,7 +206,7 @@ export default function App() {
       <View><Text style={styles.eyebrow}>FLATWORLD / LIVE</Text><Text style={styles.title}>World Simulator</Text></View>
       <Text style={styles.status}>{status ? `${status.clock
         ? `Day ${status.clock.day}, ${String(status.clock.hour).padStart(2, '0')}:${String(status.clock.minute).padStart(2, '0')}${status.light ? ` ${status.light.phase}` : ''} · `
-        : ''}${status.agentCount} alive · Tick ${status.tickCount.toLocaleString()}` : 'Connecting…'}</Text>
+        : ''}${status.agentCount} alive · Tick ${status.tickCount.toLocaleString()}${status.weather ? ` · ${readable(status.weather)}` : ''}` : 'Connecting…'}</Text>
     </View>
 
     <View style={styles.map}>
@@ -283,6 +285,7 @@ export default function App() {
             <Text style={styles.detailLine}>Behavior  {readable(selectedAgent.behavior?.id)}</Text>
             {selectedAgent.traits?.circadianType && <Text style={styles.detailLine}>Sleep rhythm  {readable(String(selectedAgent.traits.circadianType))}</Text>}
             {selectedAgent.effectiveVisionRange != null && <Text style={styles.detailLine}>Current vision  {selectedAgent.effectiveVisionRange} cells</Text>}
+            {selectedAgent.temperatureC != null && <Text style={styles.detailLine}>Local air  {selectedAgent.temperatureC.toFixed(1)}°C</Text>}
             <Text style={styles.detailLine}>Goal  {selectedAgent.currentGoal ? `${readable(selectedAgent.currentGoal.type)} · ${selectedAgent.currentGoal.targetX}, ${selectedAgent.currentGoal.targetY}` : 'None'}</Text>
             <Text style={styles.detailLine}>Route  {selectedAgent.pathRemaining ?? selectedAgent.path?.length ?? 0} cells remaining</Text>
             <Text style={styles.detailLine}>Position  {Math.round(selectedAgent.x)}, {Math.round(selectedAgent.y)}</Text>

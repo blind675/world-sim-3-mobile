@@ -44,6 +44,7 @@ export interface Agent {
   pathRemaining?: number;
   traits?: Record<string, number | string | boolean>;
   effectiveVisionRange?: number;
+  temperatureC?: number;
   memory?: { kind?: string; type?: string; x?: number; y?: number; confidence?: number }[];
   inventory?: unknown[];
 }
