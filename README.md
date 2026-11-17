@@ -25,6 +25,7 @@ With the milestone 3 backend, the app displays simulated day and time and animat
 With the daily-rhythm backend, the status also labels day or night. Selected agent details show its sleep preference and effective vision range when the newer API fields are available.
 
 The climate backend adds a daily weather label and local air temperature in agent details. These fields are read-only and optional for compatibility with older servers.
+The More tab also shows species, life stage, simulated age, and lifespan potential from the milestone 8 backend when present. The potential is informational until age-related mortality is enabled; the fields remain optional for older servers.
 
 ## Checks
 

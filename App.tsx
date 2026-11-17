@@ -301,7 +301,13 @@ export default function App() {
           </> : <>
             <Text style={styles.detailSectionTitle}>Identity</Text>
             <Text style={styles.detailLine}>ID  {selectedAgent.id}</Text>
-            {selectedAgent.age != null && <Text style={styles.detailLine}>Age  {selectedAgent.age}</Text>}
+            {selectedAgent.species && <Text style={styles.detailLine}>Species  {selectedAgent.species}</Text>}
+            {selectedAgent.lifeStage && <Text style={styles.detailLine}>Life stage  {readable(selectedAgent.lifeStage)}</Text>}
+            {selectedAgent.age != null && <Text style={styles.detailLine}>Age  {selectedAgent.ageDays ?? selectedAgent.age} simulated days</Text>}
+            {selectedAgent.lifespanDays != null && <>
+              <Text style={styles.detailLine}>Lifespan potential  {selectedAgent.lifespanDays} days</Text>
+              <Text style={styles.detailHint}>Age-related death is not active yet.</Text>
+            </>}
             {selectedAgent.sex && <Text style={styles.detailLine}>Sex  {selectedAgent.sex}</Text>}
             <Text style={styles.detailSectionTitle}>Traits</Text>
             {Object.entries(selectedAgent.traits ?? {}).length

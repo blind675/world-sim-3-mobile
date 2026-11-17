@@ -31,6 +31,12 @@ export interface Agent {
   thirst?: number;
   tiredness?: number;
   age?: number;
+  ageDays?: number;
+  birthTick?: number;
+  lifeStage?: 'juvenile' | 'adult' | 'elder';
+  species?: string;
+  templateId?: string;
+  lifespanDays?: number;
   sex?: string;
   facing?: number;
   path?: { x: number; y: number }[];
